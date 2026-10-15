@@ -15,39 +15,11 @@ import {
 } from 'firebase/firestore';
 
 const STORAGE_KEYS = {
-  FLOWS: 'tahara_flows_v1',
+  FLOWS: 'tahara_flows_v2',
   SETTINGS: 'tahara_settings_v1',
   PROCESSES: 'tahara_processes_v1',
   COUPLE: 'tahara_couple_v1'
 };
-
-// Seed initial sample flow if completely empty
-const INITIAL_SAMPLE_FLOWS: FlowEntry[] = [
-  {
-    id: 'sample-flow-1',
-    dateTime: '2026-09-15T15:30:00+03:00',
-    gregorianDate: '2026-09-15',
-    hebrewDateStr: 'ד׳ תשרי תשפ״ז',
-    hebrewYear: 5787,
-    hebrewMonthName: 'Tishrei',
-    hebrewDay: 4,
-    ona: 'day',
-    notes: 'מחזור קודם',
-    createdAt: '2026-09-15T15:30:00.000Z'
-  },
-  {
-    id: 'sample-flow-2',
-    dateTime: '2026-10-13T09:15:00+03:00',
-    gregorianDate: '2026-10-13',
-    hebrewDateStr: 'ב׳ חשוון תשפ״ז',
-    hebrewYear: 5787,
-    hebrewMonthName: 'Cheshvan',
-    hebrewDay: 2,
-    ona: 'day',
-    notes: 'ראייה אחרונה',
-    createdAt: '2026-10-13T09:15:00.000Z'
-  }
-];
 
 export const storageService = {
   // --- FLOWS ---
@@ -62,13 +34,24 @@ export const storageService = {
       }
     }
 
+    // Read local flows (empty by default, filtering any previous sample flows)
     const local = localStorage.getItem(STORAGE_KEYS.FLOWS);
     if (!local) {
-      localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(INITIAL_SAMPLE_FLOWS));
-      return INITIAL_SAMPLE_FLOWS;
+      const v1 = localStorage.getItem('tahara_flows_v1');
+      if (v1) {
+        try {
+          const parsed = JSON.parse(v1);
+          const realFlows = parsed.filter((f: FlowEntry) => !f.id.startsWith('sample-flow-'));
+          localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(realFlows));
+          localStorage.removeItem('tahara_flows_v1');
+          return realFlows;
+        } catch {}
+      }
+      return [];
     }
     try {
-      return JSON.parse(local);
+      const parsed = JSON.parse(local);
+      return parsed.filter((f: FlowEntry) => !f.id.startsWith('sample-flow-'));
     } catch {
       return [];
     }
