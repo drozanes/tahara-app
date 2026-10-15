@@ -79,7 +79,7 @@ export function determineOnaAndHebrewDate(
     hDate = hDate.next();
   }
 
-  const hebrewDateStr = hDate.renderGematriya();
+  const hebrewDateStr = hDate.renderGematriya(true);
   const hebrewDay = hDate.getDate();
   const hebrewMonthName = hDate.getMonthName();
   const hebrewYear = hDate.getFullYear();
@@ -154,16 +154,17 @@ export function getMonthEvents(year: number, month: number): Map<string, Calenda
     const mask = ev.getFlags();
     const isParasha = Boolean(mask & flags.PARSHA_HASHAVUA);
     const isRoshChodesh = Boolean(mask & flags.ROSH_CHODESH);
+    const titleNoNikud = ev.render('he-x-NoNikud');
     const isHoliday = Boolean(
       mask & (flags.CHAG | flags.MINOR_FAST | flags.MAJOR_FAST | flags.SPECIAL_SHABBAT | flags.CHOL_HAMOED | flags.ROSH_CHODESH) ||
-      ev.render('he').includes('חֲנֻכָּה') ||
-      ev.render('he').includes('פּוּרִים')
+      titleNoNikud.includes('חנוכה') ||
+      titleNoNikud.includes('פורים')
     );
 
     if (isParasha || isHoliday || isRoshChodesh) {
       const item: CalendarEventItem = {
         dateStr,
-        title: ev.render('he'),
+        title: titleNoNikud,
         isParasha,
         isHoliday,
         isRoshChodesh

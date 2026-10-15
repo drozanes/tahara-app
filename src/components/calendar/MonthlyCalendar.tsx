@@ -11,7 +11,7 @@ import {
   Undo2,
   AlertCircle
 } from 'lucide-react';
-import { HDate } from '@hebcal/core';
+import { HDate, gematriya } from '@hebcal/core';
 import { useApp } from '../../context/AppContext';
 import { 
   toDateString, 
@@ -100,7 +100,8 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
       const dateObj = new Date(year, month, d);
       const dateStr = toDateString(dateObj);
       const hDate = new HDate(dateObj);
-      const hebrewStr = hDate.renderGematriya();
+      const hebrewDayStr = gematriya(hDate.getDate());
+      const hebrewStr = hDate.renderGematriya(true);
       const zmanim = getZmanimForDate(dateObj, settings.locationName);
 
       // Check if any flow on this day
@@ -126,6 +127,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
         dateObj,
         dateStr,
         hebrewStr,
+        hebrewDayStr,
         dayOnot,
         isFlow,
         isCleanDay,
@@ -144,13 +146,21 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
   const monthTitle = currentMonth.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
   const todayStr = toDateString(new Date());
 
-  const daysOfWeek = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  const daysOfWeek = [
+    { short: 'א׳', full: 'ראשון' },
+    { short: 'ב׳', full: 'שני' },
+    { short: 'ג׳', full: 'שלישי' },
+    { short: 'ד׳', full: 'רביעי' },
+    { short: 'ה׳', full: 'חמישי' },
+    { short: 'ו׳', full: 'שישי' },
+    { short: 'ש׳', full: 'שבת' },
+  ];
 
   return (
-    <div className="bg-white rounded-3xl p-4 sm:p-6 border border-stone-200/80 shadow-sm">
+    <div className="bg-white rounded-3xl p-2.5 sm:p-6 border border-stone-200/80 shadow-sm">
       
       {/* Calendar Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
         <div className="flex items-center gap-2">
           <CalendarIcon className="w-5 h-5 text-rose-500" />
           <h2 className="text-base sm:text-lg font-bold text-stone-800 capitalize">
@@ -184,10 +194,11 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
       </div>
 
       {/* Weekday Labels */}
-      <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-center">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-center select-none">
         {daysOfWeek.map((day, idx) => (
-          <div key={day} className={`text-xs font-semibold py-1 ${idx === 6 ? 'text-amber-700 font-bold' : 'text-stone-500'}`}>
-            {day}
+          <div key={day.full} className={`text-[11px] sm:text-xs font-semibold py-1 ${idx === 6 ? 'text-amber-700 font-bold' : 'text-stone-500'}`}>
+            <span className="sm:hidden">{day.short}</span>
+            <span className="hidden sm:inline">{day.full}</span>
           </div>
         ))}
       </div>
@@ -196,7 +207,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
       <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {calendarDays.map((day, i) => {
           if (!day) {
-            return <div key={`empty-${i}`} className="min-h-[75px] sm:min-h-[98px] rounded-2xl bg-stone-50/30" />;
+            return <div key={`empty-${i}`} className="min-h-[58px] sm:min-h-[96px] rounded-xl sm:rounded-2xl bg-stone-50/30" />;
           }
 
           const isToday = day.dateStr === todayStr;
@@ -219,7 +230,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
                 sunset: day.sunset,
                 tzeit: day.tzeit
               })}
-              className={`min-h-[75px] sm:min-h-[98px] rounded-2xl p-1.5 sm:p-2 border transition-all cursor-pointer flex flex-col justify-between select-none ${
+              className={`min-h-[58px] sm:min-h-[96px] rounded-xl sm:rounded-2xl p-1 sm:p-2 border transition-all cursor-pointer flex flex-col justify-between select-none overflow-hidden ${
                 isToday 
                   ? 'border-rose-400 bg-rose-50/40 ring-1 ring-rose-300' 
                   : day.isFlow
@@ -234,31 +245,31 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
               }`}
             >
               {/* Day numbers (Gregorian & Hebrew) */}
-              <div className="flex items-center justify-between">
-                <span className={`text-xs font-bold ${isToday ? 'text-rose-600' : isShabbat ? 'text-amber-800' : 'text-stone-700'}`}>
+              <div className="flex items-start justify-between w-full leading-tight select-none">
+                <span className={`text-[11px] sm:text-xs font-bold leading-none ${isToday ? 'text-rose-600' : isShabbat ? 'text-amber-800' : 'text-stone-800'}`}>
                   {day.dayNumber}
                 </span>
-                <span className="text-[10px] text-stone-600 font-medium">
-                  {day.hebrewStr.split(' ')[0]}
+                <span className="text-[9px] sm:text-[10px] text-stone-500 font-semibold leading-none whitespace-nowrap">
+                  {day.hebrewDayStr}
                 </span>
               </div>
 
               {/* Mobile Indicators (Dots) */}
-              <div className="flex sm:hidden items-center justify-center gap-1 mt-1 flex-wrap min-h-[14px]">
+              <div className="flex sm:hidden items-center justify-center gap-0.5 mt-1 flex-wrap min-h-[12px]">
                 {day.isFlow && (
-                  <span className="w-2 h-2 rounded-full bg-rose-500 shadow-xs" title="ראייה" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-xs" title="ראייה" />
                 )}
                 {day.isMikvehNight && (
-                  <span className="w-2 h-2 rounded-full bg-purple-600 shadow-xs animate-pulse" title="טבילה" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-600 shadow-xs animate-pulse" title="טבילה" />
                 )}
                 {day.isCleanDay && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" title={`נקי ${day.isCleanDay}`} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title={`נקי ${day.isCleanDay}`} />
                 )}
                 {day.dayOnot.length > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-amber-500" title="עונת פרישה" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" title="עונת פרישה" />
                 )}
                 {day.holidays.length > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-blue-500" title={day.holidays[0]} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500" title={day.holidays[0]} />
                 )}
                 {day.parasha && (
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-700" title={day.parasha} />
@@ -273,7 +284,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
                     title={day.parasha}
                     className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] sm:text-[9px] font-bold bg-amber-100/90 text-amber-900 border border-amber-200 truncate"
                   >
-                    📖 {day.parasha.replace('פָּרָשַׁת ', '').replace('פַּרְשַׁת ', '')}
+                    📖 {day.parasha.replace('פרשת ', '').replace('פָּרָשַׁת ', '').replace('פַּרְשַׁת ', '')}
                   </span>
                 )}
 
