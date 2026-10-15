@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/layout/Navbar';
+import { BottomNav } from './components/layout/BottomNav';
 import { PrivacyShield } from './components/layout/PrivacyShield';
 import { MonthlyCalendar } from './components/calendar/MonthlyCalendar';
 import { TaharaCard } from './components/tahara/TaharaCard';
@@ -44,7 +45,7 @@ const MainAppContent: React.FC = () => {
   const isWife = profile.currentRole === 'wife';
 
   return (
-    <div className="min-h-screen bg-stone-50 pb-20">
+    <div className="min-h-screen bg-stone-50 pb-28 sm:pb-12">
       
       {/* Top Navbar */}
       <Navbar
@@ -177,16 +178,12 @@ const MainAppContent: React.FC = () => {
 
       </main>
 
-      {/* Floating Action Button (Mobile) for New Cycle */}
-      {isWife && (
-        <button
-          onClick={() => setIsNewCycleOpen(true)}
-          className="sm:hidden fixed bottom-6 left-6 z-30 w-14 h-14 rounded-full bg-gradient-to-tr from-rose-600 to-rose-500 text-white shadow-xl shadow-rose-300 flex items-center justify-center active:scale-95 transition-transform"
-          title="הזנת ראייה חדשה"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
-      )}
+      {/* Mobile Bottom Navigation Bar */}
+      <BottomNav
+        onOpenNewCycle={() => handleOpenNewCycle()}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenCouple={() => setIsCoupleOpen(true)}
+      />
 
       {/* Modals */}
       <NewCycleModal 

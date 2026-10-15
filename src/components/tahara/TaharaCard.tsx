@@ -182,16 +182,16 @@ export const TaharaCard: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+          <div className="flex sm:grid sm:grid-cols-7 overflow-x-auto pb-2 gap-2 scrollbar-none snap-x -mx-1 px-1 sm:mx-0 sm:px-0">
             {taharaProcess.cleanDays?.map((day) => {
               const isToday = day.gregorianDate === todayStr;
               const isFuture = day.gregorianDate > todayStr;
               return (
                 <div 
                   key={day.dayNumber}
-                  className={`rounded-2xl p-3 border text-center transition-all ${
+                  className={`min-w-[105px] sm:min-w-0 flex-1 snap-center shrink-0 rounded-2xl p-2.5 sm:p-3 border text-center transition-all ${
                     isToday 
-                      ? 'bg-rose-50/80 border-rose-300 ring-2 ring-rose-300/40' 
+                      ? 'bg-rose-50/80 border-rose-300 ring-2 ring-rose-300/40 shadow-xs' 
                       : isFuture
                       ? 'bg-stone-50/40 border-stone-100 opacity-60'
                       : 'bg-stone-50/70 border-stone-200/70'
@@ -248,12 +248,13 @@ export const TaharaCard: React.FC = () => {
       {isHefsekModalOpen && (
         <div 
           onClick={() => setIsHefsekModalOpen(false)}
-          className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-rose-100 text-center animate-in fade-in zoom-in-95 cursor-default"
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-rose-100 text-center animate-in slide-in-from-bottom duration-200 cursor-default pb-8 sm:pb-6"
           >
+            <div className="w-12 h-1 rounded-full bg-stone-300 mx-auto mb-4 sm:hidden" />
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3">
               <Sparkles className="w-6 h-6" />
             </div>
@@ -294,12 +295,13 @@ export const TaharaCard: React.FC = () => {
       {isCancelConfirmOpen && (
         <div 
           onClick={() => setIsCancelConfirmOpen(false)}
-          className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 text-center animate-in fade-in zoom-in-95 cursor-default"
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-stone-200 text-center animate-in slide-in-from-bottom duration-200 cursor-default pb-8 sm:pb-6"
           >
+            <div className="w-12 h-1 rounded-full bg-stone-300 mx-auto mb-4 sm:hidden" />
             <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3">
               <Undo2 className="w-6 h-6" />
             </div>

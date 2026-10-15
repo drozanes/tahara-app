@@ -243,9 +243,30 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
                 </span>
               </div>
 
-              {/* Event Tags */}
-              <div className="flex flex-col gap-1 mt-1">
-                
+              {/* Mobile Indicators (Dots) */}
+              <div className="flex sm:hidden items-center justify-center gap-1 mt-1 flex-wrap min-h-[14px]">
+                {day.isFlow && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 shadow-xs" title="ראייה" />
+                )}
+                {day.isMikvehNight && (
+                  <span className="w-2 h-2 rounded-full bg-purple-600 shadow-xs animate-pulse" title="טבילה" />
+                )}
+                {day.isCleanDay && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" title={`נקי ${day.isCleanDay}`} />
+                )}
+                {day.dayOnot.length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-500" title="עונת פרישה" />
+                )}
+                {day.holidays.length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-blue-500" title={day.holidays[0]} />
+                )}
+                {day.parasha && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-700" title={day.parasha} />
+                )}
+              </div>
+
+              {/* Desktop Event Badges */}
+              <div className="hidden sm:flex flex-col gap-1 mt-1">
                 {/* Parashat Hashavua on Shabbat */}
                 {day.parasha && (
                   <span 
@@ -310,43 +331,45 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-stone-100 text-xs text-stone-500">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-5 sm:mt-6 pt-4 border-t border-stone-100 text-[11px] sm:text-xs text-stone-500">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-rose-500" />
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
           <span>ראייה</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-rose-100 border border-rose-300" />
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-100 border border-rose-300" />
           <span>עונת פרישה</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-amber-100 border border-amber-300" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-100 border border-amber-300" />
           <span>אור זרוע</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-300" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-100 border border-emerald-300" />
           <span>שבעה נקיים</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-purple-600" />
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
           <span>ליל טבילה</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-blue-100 border border-blue-300" />
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-100 border border-blue-300" />
           <span>חג / ראש חודש</span>
         </div>
       </div>
 
-      {/* Day Details Modal */}
+      {/* Day Details Modal / Bottom Sheet on Mobile */}
       {selectedDay && (
         <div 
           onClick={() => setSelectedDay(null)}
-          className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto cursor-default"
+            className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-stone-200 animate-in slide-in-from-bottom duration-200 max-h-[85vh] overflow-y-auto cursor-default pb-8 sm:pb-6"
           >
+            {/* Grab Handle (Mobile) */}
+            <div className="w-12 h-1 rounded-full bg-stone-300 mx-auto mb-4 sm:hidden" />
             
             {/* Header */}
             <div className="flex justify-between items-start mb-4">

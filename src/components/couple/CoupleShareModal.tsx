@@ -52,12 +52,14 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
   return (
     <div 
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+      className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-100 animate-in fade-in zoom-in-95 cursor-default"
+        className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-rose-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 cursor-default max-h-[90vh] overflow-y-auto pb-8 sm:pb-6"
       >
+        {/* Grab Handle (Mobile) */}
+        <div className="w-12 h-1 rounded-full bg-stone-300 mx-auto mb-4 sm:hidden" />
         
         {/* Header */}
         <div className="flex justify-between items-start mb-6">

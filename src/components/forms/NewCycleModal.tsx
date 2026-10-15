@@ -68,18 +68,20 @@ export const NewCycleModal: React.FC<NewCycleModalProps> = ({ isOpen, onClose, i
   return (
     <div 
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+      className="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-rose-100 animate-in fade-in zoom-in-95 duration-200 cursor-default"
+        className="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-rose-100 animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 cursor-default max-h-[92vh] flex flex-col"
       >
+        {/* Grab Handle (Mobile) */}
+        <div className="w-12 h-1 rounded-full bg-stone-300 mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-rose-50 to-pink-50 p-6 border-b border-rose-100 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-rose-50 to-pink-50 p-5 sm:p-6 border-b border-rose-100 flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-stone-900">הזנת ראייה / תחילת מחזור</h2>
-            <p className="text-xs text-stone-500 mt-1">חישוב אוטומטי של עונת יום או לילה וזמני הפרישה</p>
+            <h2 className="text-lg sm:text-xl font-bold text-stone-900">הזנת ראייה / תחילת מחזור</h2>
+            <p className="text-xs text-stone-500 mt-0.5">חישוב אוטומטי של עונת יום או לילה וזמני הפרישה</p>
           </div>
           <button 
             onClick={onClose}
@@ -90,7 +92,7 @@ export const NewCycleModal: React.FC<NewCycleModalProps> = ({ isOpen, onClose, i
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto">
           
           {/* Date & Time Pickers */}
           <div className="grid grid-cols-2 gap-4">
