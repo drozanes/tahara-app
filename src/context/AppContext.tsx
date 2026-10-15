@@ -27,7 +27,7 @@ interface AppContextType {
   recordHefsek: (hefsekDate: string, mochDachuk: boolean) => void;
   cancelHefsek: () => void;
   toggleBedika: (dayNumber: number, type: 'morning' | 'afternoon') => void;
-  joinCoupleCode: (code: string) => boolean;
+  joinCoupleCode: (code: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -39,12 +39,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCamouflage, setIsCamouflage] = useState<boolean>(false);
   const [taharaProcess, setTaharaProcess] = useState<TaharaProcess | null>(null);
 
-  // Load flows on mount
+  // Load flows on mount or coupleCode change
   useEffect(() => {
-    storageService.getFlows().then(loadedFlows => {
+    storageService.getFlows(profile.coupleCode).then(loadedFlows => {
       setFlows(loadedFlows);
     });
-  }, []);
+  }, [profile.coupleCode]);
+
+  // Real-time synchronization via Firebase
+  useEffect(() => {
+    if (!profile.coupleCode) return;
+
+    const unsubFlows = storageService.subscribeFlows(profile.coupleCode, (updatedFlows) => {
+      setFlows(updatedFlows);
+    });
+
+    const unsubSettings = storageService.subscribeSettings(profile.coupleCode, (updatedSettings) => {
+      setSettings(updatedSettings);
+    });
+
+    return () => {
+      if (unsubFlows) unsubFlows();
+      if (unsubSettings) unsubSettings();
+    };
+  }, [profile.coupleCode]);
 
   // Most recent flow
   const activeFlow = useMemo(() => {
@@ -62,13 +80,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return calculateOnotPrisha(activeFlow, previousFlow, settings);
   }, [activeFlow, previousFlow, settings]);
 
+  // Real-time listener for active flow's Tahara process
+  useEffect(() => {
+    if (!profile.coupleCode || !activeFlow) return;
+
+    const unsubProc = storageService.subscribeTaharaProcess(profile.coupleCode, activeFlow.id, (proc) => {
+      if (proc) {
+        setTaharaProcess(proc);
+      }
+    });
+
+    return () => {
+      if (unsubProc) unsubProc();
+    };
+  }, [profile.coupleCode, activeFlow?.id]);
+
   // Load or initialize Tahara process for active flow
   useEffect(() => {
     if (activeFlow) {
       let proc = storageService.getTaharaProcess(activeFlow.id);
       if (!proc) {
         proc = initializeTaharaProcess(activeFlow, settings);
-        storageService.saveTaharaProcess(proc);
+        storageService.saveTaharaProcess(proc, profile.coupleCode);
       } else {
         proc.status = updateTaharaStatus(proc);
       }
@@ -76,7 +109,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setTaharaProcess(null);
     }
-  }, [activeFlow, settings]);
+  }, [activeFlow, settings, profile.coupleCode]);
 
   const addFlow = async (dateTime: Date, notes?: string) => {
     const { ona, hebrewDateStr, hebrewYear, hebrewMonthName, hebrewDay } = 
@@ -95,20 +128,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
-    await storageService.saveFlow(newFlow);
-    const updated = await storageService.getFlows();
+    await storageService.saveFlow(newFlow, profile.coupleCode);
+    const updated = await storageService.getFlows(profile.coupleCode);
     setFlows(updated);
   };
 
   const deleteFlow = async (flowId: string) => {
-    await storageService.deleteFlow(flowId);
-    const updated = await storageService.getFlows();
+    await storageService.deleteFlow(flowId, profile.coupleCode);
+    const updated = await storageService.getFlows(profile.coupleCode);
     setFlows(updated);
   };
 
   const updateSettings = (newSettings: HalachicSettings) => {
     setSettings(newSettings);
-    storageService.saveSettings(newSettings);
+    storageService.saveSettings(newSettings, profile.coupleCode);
     const updatedProfile = { ...profile, settings: newSettings };
     setProfile(updatedProfile);
     storageService.saveCoupleProfile(updatedProfile);
@@ -128,14 +161,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!taharaProcess) return;
     const updated = completeHefsekTahara(taharaProcess, hefsekDate, mochDachuk, settings);
     setTaharaProcess(updated);
-    storageService.saveTaharaProcess(updated);
+    storageService.saveTaharaProcess(updated, profile.coupleCode);
   };
 
   const cancelHefsek = () => {
     if (!activeFlow) return;
     const reset = initializeTaharaProcess(activeFlow, settings);
     setTaharaProcess(reset);
-    storageService.saveTaharaProcess(reset);
+    storageService.saveTaharaProcess(reset, profile.coupleCode);
   };
 
   const toggleBedika = (dayNumber: number, type: 'morning' | 'afternoon') => {
@@ -159,14 +192,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const updated = { ...taharaProcess, cleanDays };
     setTaharaProcess(updated);
-    storageService.saveTaharaProcess(updated);
+    storageService.saveTaharaProcess(updated, profile.coupleCode);
   };
 
-  const joinCoupleCode = (code: string) => {
-    if (code.trim().length >= 4) {
-      const updated = { ...profile, coupleCode: code.toUpperCase() };
+  const joinCoupleCode = async (code: string): Promise<boolean> => {
+    const clean = code.trim().toUpperCase();
+    if (clean.length >= 4) {
+      const updated = { ...profile, coupleCode: clean };
       setProfile(updated);
       storageService.saveCoupleProfile(updated);
+
+      // Fetch existing data for this couple from Firestore/LocalStorage
+      const coupleFlows = await storageService.getFlows(clean);
+      setFlows(coupleFlows);
       return true;
     }
     return false;

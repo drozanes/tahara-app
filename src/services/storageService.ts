@@ -11,7 +11,8 @@ import {
   doc, 
   getDocs, 
   setDoc, 
-  deleteDoc 
+  deleteDoc,
+  onSnapshot
 } from 'firebase/firestore';
 
 const STORAGE_KEYS = {
@@ -28,7 +29,12 @@ export const storageService = {
       try {
         const colRef = collection(db, `couples/${coupleId}/flows`);
         const snapshot = await getDocs(colRef);
-        return snapshot.docs.map(d => d.data() as FlowEntry);
+        const cloudFlows = snapshot.docs.map(d => d.data() as FlowEntry);
+        cloudFlows.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+        if (cloudFlows.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(cloudFlows));
+          return cloudFlows;
+        }
       } catch (err) {
         console.warn('Firebase getFlows failed, using local storage:', err);
       }
@@ -94,6 +100,25 @@ export const storageService = {
     }
   },
 
+  subscribeFlows(coupleId: string, onUpdate: (flows: FlowEntry[]) => void): (() => void) | null {
+    if (!isFirebaseConfigured || !db || !coupleId) return null;
+    try {
+      const colRef = collection(db, `couples/${coupleId}/flows`);
+      const unsubscribe = onSnapshot(colRef, (snapshot) => {
+        const flows = snapshot.docs.map(d => d.data() as FlowEntry);
+        flows.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+        localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(flows));
+        onUpdate(flows);
+      }, (err) => {
+        console.warn('Firestore flows subscription error:', err);
+      });
+      return unsubscribe;
+    } catch (err) {
+      console.warn('subscribeFlows error:', err);
+      return null;
+    }
+  },
+
   // --- SETTINGS ---
   getSettings(): HalachicSettings {
     const local = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -118,6 +143,26 @@ export const storageService = {
     }
   },
 
+  subscribeSettings(coupleId: string, onUpdate: (settings: HalachicSettings) => void): (() => void) | null {
+    if (!isFirebaseConfigured || !db || !coupleId) return null;
+    try {
+      const docRef = doc(db, `couples/${coupleId}/settings`, 'current');
+      const unsubscribe = onSnapshot(docRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const settings = snapshot.data() as HalachicSettings;
+          localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+          onUpdate(settings);
+        }
+      }, (err) => {
+        console.warn('Firestore settings subscription error:', err);
+      });
+      return unsubscribe;
+    } catch (err) {
+      console.warn('subscribeSettings error:', err);
+      return null;
+    }
+  },
+
   // --- TAHARA PROCESS ---
   getTaharaProcess(cycleId: string): TaharaProcess | null {
     const local = localStorage.getItem(`${STORAGE_KEYS.PROCESSES}_${cycleId}`);
@@ -139,6 +184,26 @@ export const storageService = {
       } catch (err) {
         console.warn('Firebase saveTaharaProcess failed:', err);
       }
+    }
+  },
+
+  subscribeTaharaProcess(coupleId: string, cycleId: string, onUpdate: (proc: TaharaProcess | null) => void): (() => void) | null {
+    if (!isFirebaseConfigured || !db || !coupleId || !cycleId) return null;
+    try {
+      const docRef = doc(db, `couples/${coupleId}/processes`, cycleId);
+      const unsubscribe = onSnapshot(docRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const proc = snapshot.data() as TaharaProcess;
+          localStorage.setItem(`${STORAGE_KEYS.PROCESSES}_${cycleId}`, JSON.stringify(proc));
+          onUpdate(proc);
+        }
+      }, (err) => {
+        console.warn('Firestore process subscription error:', err);
+      });
+      return unsubscribe;
+    } catch (err) {
+      console.warn('subscribeTaharaProcess error:', err);
+      return null;
     }
   },
 

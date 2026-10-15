@@ -1,5 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { getAuth, signInAnonymously, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 
 // Placeholder configuration - users can paste their Firebase console config here
@@ -26,6 +26,9 @@ if (isFirebaseConfigured) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     auth = getAuth(app);
     db = getFirestore(app);
+    signInAnonymously(auth).catch(() => {
+      // Anonymous auth not enabled in console or running offline
+    });
   } catch (err) {
     console.warn("Firebase initialization failed, falling back to LocalStorage:", err);
   }

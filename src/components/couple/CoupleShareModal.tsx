@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Copy, Check, Users, Share2, ArrowRight } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { isFirebaseConfigured } from '../../services/firebase';
 
 interface CoupleShareModalProps {
   isOpen: boolean;
@@ -38,9 +39,10 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (joinCoupleCode(inputCode)) {
+    const ok = await joinCoupleCode(inputCode);
+    if (ok) {
       setJoinedSuccess(true);
       setTimeout(() => {
         setJoinedSuccess(false);
@@ -62,7 +64,7 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
         <div className="w-12 h-1 rounded-full bg-stone-300 mx-auto mb-4 sm:hidden" />
         
         {/* Header */}
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
               <Users className="w-5 h-5" />
@@ -78,6 +80,22 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Sync Status Badge */}
+        <div className="mb-5 flex items-center justify-between text-xs px-3.5 py-2.5 rounded-2xl bg-stone-50 border border-stone-200/70">
+          <span className="text-stone-500 font-medium">חיבור ענן:</span>
+          {isFirebaseConfigured ? (
+            <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              סנכרון ענן פעיל (Firebase)
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-amber-700 font-medium text-[11px]">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              מקומי (ממתין להזנת מפתחות Firebase)
+            </span>
+          )}
         </div>
 
         {/* My Couple Code Box */}
