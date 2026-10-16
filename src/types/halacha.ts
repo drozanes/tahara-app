@@ -108,7 +108,7 @@ export interface CoupleProfile {
   coupleCode: string;
   wifeName: string;
   husbandName: string;
-  currentRole: 'wife' | 'husband';
+  currentRole?: 'wife' | 'husband';
   settings: HalachicSettings;
-  camouflageMode: boolean; // מחשבון / פתקים
+  camouflageMode?: boolean;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { determineOnaAndHebrewDate } from '../engine/zmanim';
+import { determineOnaAndHebrewDate, parseLocalDate, toDateString } from '../engine/zmanim';
 import { calculateOnotPrisha } from '../engine/onotCalculator';
 import { initializeTaharaProcess, completeHefsekTahara } from '../engine/taharaTracker';
 import { DEFAULT_SETTINGS, type FlowEntry } from '../types/halacha';
@@ -24,7 +24,17 @@ describe('Halachic Zmanim & Ona Determination', () => {
   });
 });
 
-describe('Onot Prisha Calculations', () => {
+describe('Timezone-Safe Date Parsing', () => {
+  it('parseLocalDate consistently parses YYYY-MM-DD regardless of local timezone', () => {
+    const parsed = parseLocalDate('2026-10-15');
+    expect(parsed.getFullYear()).toBe(2026);
+    expect(parsed.getMonth()).toBe(9); // 0-indexed October
+    expect(parsed.getDate()).toBe(15);
+    expect(toDateString(parsed)).toBe('2026-10-15');
+  });
+});
+
+describe('Onot Prisha Calculations & Halachic Accuracy', () => {
   const sampleFlow: FlowEntry = {
     id: 'flow-1',
     dateTime: '2026-10-15T10:00:00+03:00',
@@ -68,6 +78,30 @@ describe('Onot Prisha Calculations', () => {
     expect(yomHachodesh?.hebrewDateStr).toContain('ד׳');
   });
 
+  it('correctly calculates יום החודש across the Rosh Hashana Elul -> Tishrei boundary', () => {
+    // Flow on 15 Elul 5787 (Sep 17, 2027)
+    // Yom Hachodesh must be in Tishrei 5788 (Oct 2027), NOT Tishrei 5787 (Sep 2026 in the past)!
+    const elulFlow: FlowEntry = {
+      id: 'elul-flow',
+      dateTime: '2027-09-17T10:00:00+03:00',
+      gregorianDate: '2027-09-17',
+      hebrewDateStr: 'ט״ו אֱלוּל תשפ״ז',
+      hebrewYear: 5787,
+      hebrewMonthName: 'Elul',
+      hebrewDay: 15,
+      ona: 'day',
+      createdAt: new Date().toISOString()
+    };
+
+    const settings = { ...DEFAULT_SETTINGS.ashkenazi, orZarua: false };
+    const onot = calculateOnotPrisha(elulFlow, null, settings);
+
+    const yomHachodesh = onot.find(o => o.type === 'yom_hachodesh');
+    expect(yomHachodesh).toBeDefined();
+    expect(yomHachodesh?.gregorianDate.startsWith('2027-10')).toBe(true);
+    expect(yomHachodesh?.hebrewDateStr).toContain('ט״ו');
+  });
+
   it('calculates הפלגה correctly based on interval between consecutive flows', () => {
     const prevFlow: FlowEntry = {
       id: 'flow-0',
@@ -90,51 +124,75 @@ describe('Onot Prisha Calculations', () => {
     expect(haflagah?.title).toContain('29 ימים');
   });
 
-  it('adds עונת אור זרוע when enabled in Ashkenazi/Chabad settings', () => {
+  it('correctly sets Or Zarua timing for a Day parent ona (night before)', () => {
     const settings = { ...DEFAULT_SETTINGS.ashkenazi, orZarua: true };
     const onot = calculateOnotPrisha(sampleFlow, null, settings);
 
-    const orZaruaOnot = onot.filter(o => o.isOrZarua);
-    expect(orZaruaOnot.length).toBeGreaterThan(0);
-    // Since primary ona is day, Or Zarua must be the preceding night
-    expect(orZaruaOnot[0].ona).toBe('night');
+    const benonitOZ = onot.find(o => o.type === 'or_zarua' && o.id.includes('benonit'));
+    expect(benonitOZ).toBeDefined();
+    expect(benonitOZ?.ona).toBe('night');
+    // Day parent is on 2026-11-13. Preceding night begins sunset of 2026-11-12!
+    expect(benonitOZ?.gregorianDate).toBe('2026-11-12');
   });
 });
 
-describe('Tahara Lifecycle & Hefsek', () => {
-  const sampleFlow: FlowEntry = {
-    id: 'flow-1',
-    dateTime: '2026-10-15T10:00:00+03:00',
-    gregorianDate: '2026-10-15',
-    hebrewDateStr: 'ד׳ חֶשְׁוָן תשפ״ז',
+describe('Tahara Lifecycle & Night Flow Hefsek Accuracy', () => {
+  const dayFlow: FlowEntry = {
+    id: 'day-flow-1',
+    dateTime: '2026-10-18T10:00:00+03:00',
+    gregorianDate: '2026-10-18', // Sunday day
+    hebrewDateStr: 'ז׳ חֶשְׁוָן תשפ״ז',
     hebrewYear: 5787,
     hebrewMonthName: 'Cheshvan',
-    hebrewDay: 4,
+    hebrewDay: 7,
     ona: 'day',
     createdAt: new Date().toISOString()
   };
 
-  it('requires 4 days minimum for Sephardic custom', () => {
-    const process = initializeTaharaProcess(sampleFlow, DEFAULT_SETTINGS.sephardi);
-    // 2026-10-15 (Day 1) -> 2026-10-18 (Day 4)
-    expect(process.earliestHefsekDate).toBe('2026-10-18');
+  const nightFlow: FlowEntry = {
+    id: 'night-flow-1',
+    dateTime: '2026-10-18T20:30:00+03:00', // Sunday night (after sunset = Monday Hebrew day)
+    gregorianDate: '2026-10-18',
+    hebrewDateStr: 'ח׳ חֶשְׁוָן תשפ״ז',
+    hebrewYear: 5787,
+    hebrewMonthName: 'Cheshvan',
+    hebrewDay: 8,
+    ona: 'night',
+    createdAt: new Date().toISOString()
+  };
+
+  it('requires 4 days minimum for Sephardic custom on Day flow', () => {
+    const process = initializeTaharaProcess(dayFlow, DEFAULT_SETTINGS.sephardi);
+    // Sunday (Day 1) -> Wednesday (Day 4)
+    expect(process.earliestHefsekDate).toBe('2026-10-21');
   });
 
-  it('requires 5 days minimum for Ashkenazic custom', () => {
-    const process = initializeTaharaProcess(sampleFlow, DEFAULT_SETTINGS.ashkenazi);
-    // 2026-10-15 (Day 1) -> 2026-10-19 (Day 5)
-    expect(process.earliestHefsekDate).toBe('2026-10-19');
+  it('requires 5 days minimum for Ashkenazic custom on Day flow', () => {
+    const process = initializeTaharaProcess(dayFlow, DEFAULT_SETTINGS.ashkenazi);
+    // Sunday (Day 1) -> Thursday (Day 5)
+    expect(process.earliestHefsekDate).toBe('2026-10-22');
+  });
+
+  it('correctly shifts earliest Hefsek by +1 day when flow starts at Night (after sunset)', () => {
+    // Flow starts Sunday night -> Hebrew Day 1 is Monday!
+    // Ashkenazi 5 days min: Monday (1), Tue (2), Wed (3), Thu (4), Friday (5)!
+    const ashkenaziNightProcess = initializeTaharaProcess(nightFlow, DEFAULT_SETTINGS.ashkenazi);
+    expect(ashkenaziNightProcess.earliestHefsekDate).toBe('2026-10-23'); // Friday!
+
+    // Sephardi 4 days min: Monday (1), Tue (2), Wed (3), Thursday (4)!
+    const sephardiNightProcess = initializeTaharaProcess(nightFlow, DEFAULT_SETTINGS.sephardi);
+    expect(sephardiNightProcess.earliestHefsekDate).toBe('2026-10-22'); // Thursday!
   });
 
   it('schedules 7 clean days and Mikveh night following Hefsek', () => {
-    const process = initializeTaharaProcess(sampleFlow, DEFAULT_SETTINGS.ashkenazi);
-    const updated = completeHefsekTahara(process, '2026-10-19', true, DEFAULT_SETTINGS.ashkenazi);
+    const process = initializeTaharaProcess(dayFlow, DEFAULT_SETTINGS.ashkenazi);
+    const updated = completeHefsekTahara(process, '2026-10-22', true, DEFAULT_SETTINGS.ashkenazi);
 
     expect(updated.cleanDays.length).toBe(7);
-    expect(updated.cleanDays[0].gregorianDate).toBe('2026-10-20');
-    expect(updated.cleanDays[6].gregorianDate).toBe('2026-10-26');
+    expect(updated.cleanDays[0].gregorianDate).toBe('2026-10-23');
+    expect(updated.cleanDays[6].gregorianDate).toBe('2026-10-29');
     // Mikveh night is evening of day 7
-    expect(updated.mikvehNightDate).toBe('2026-10-26');
+    expect(updated.mikvehNightDate).toBe('2026-10-29');
     expect(updated.status).toBe('seven_clean_days');
   });
 });

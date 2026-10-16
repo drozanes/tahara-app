@@ -97,6 +97,18 @@ export function determineOnaAndHebrewDate(
 }
 
 /**
+ * Parse YYYY-MM-DD string as a local Date at noon (12:00:00) to prevent
+ * any timezone shifts in UTC-negative zones or during DST transitions.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [yearStr, monthStr, dayStr] = dateStr.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10) - 1;
+  const day = parseInt(dayStr, 10);
+  return new Date(year, month, day, 12, 0, 0);
+}
+
+/**
  * Format Date to YYYY-MM-DD local string
  */
 export function toDateString(d: Date): string {
@@ -107,10 +119,10 @@ export function toDateString(d: Date): string {
 }
 
 /**
- * Add days to a Date
+ * Add days to a Date safely
  */
 export function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
+  const result = new Date(date.getTime());
   result.setDate(result.getDate() + days);
   return result;
 }
@@ -134,45 +146,55 @@ export interface CalendarEventItem {
  * Returns Jewish holidays, Rosh Chodesh, and Parashat Hashavua for a given year & month.
  */
 export function getMonthEvents(year: number, month: number): Map<string, CalendarEventItem[]> {
-  const events = HebrewCalendar.calendar({
-    year,
-    isHebrewYear: false,
-    il: true,
-    sedrot: true
-  });
+  const yearsToFetch = [year];
+  if (month === 0) yearsToFetch.push(year - 1);
+  if (month === 11) yearsToFetch.push(year + 1);
 
   const eventMap = new Map<string, CalendarEventItem[]>();
 
-  for (const ev of events) {
-    const d = ev.getDate().greg();
-    // Only process events around this month (previous, current, next month to avoid edge issues)
-    if (Math.abs(d.getMonth() - month) > 1 && Math.abs(d.getFullYear() - year) === 0) {
-      continue;
-    }
+  for (const y of yearsToFetch) {
+    const events = HebrewCalendar.calendar({
+      year: y,
+      isHebrewYear: false,
+      il: true,
+      sedrot: true
+    });
 
-    const dateStr = toDateString(d);
-    const mask = ev.getFlags();
-    const isParasha = Boolean(mask & flags.PARSHA_HASHAVUA);
-    const isRoshChodesh = Boolean(mask & flags.ROSH_CHODESH);
-    const titleNoNikud = ev.render('he-x-NoNikud');
-    const isHoliday = Boolean(
-      mask & (flags.CHAG | flags.MINOR_FAST | flags.MAJOR_FAST | flags.SPECIAL_SHABBAT | flags.CHOL_HAMOED | flags.ROSH_CHODESH) ||
-      titleNoNikud.includes('חנוכה') ||
-      titleNoNikud.includes('פורים')
-    );
+    for (const ev of events) {
+      const d = ev.getDate().greg();
+      // Only process events around this month (previous, current, next month)
+      const diffMonths = (d.getFullYear() - year) * 12 + (d.getMonth() - month);
+      if (Math.abs(diffMonths) > 1) {
+        continue;
+      }
 
-    if (isParasha || isHoliday || isRoshChodesh) {
-      const item: CalendarEventItem = {
-        dateStr,
-        title: titleNoNikud,
-        isParasha,
-        isHoliday,
-        isRoshChodesh
-      };
+      const dateStr = toDateString(d);
+      const mask = ev.getFlags();
+      const isParasha = Boolean(mask & flags.PARSHA_HASHAVUA);
+      const isRoshChodesh = Boolean(mask & flags.ROSH_CHODESH);
+      const titleNoNikud = ev.render('he-x-NoNikud');
+      const isHoliday = Boolean(
+        mask & (flags.CHAG | flags.MINOR_FAST | flags.MAJOR_FAST | flags.SPECIAL_SHABBAT | flags.CHOL_HAMOED | flags.ROSH_CHODESH) ||
+        titleNoNikud.includes('חנוכה') ||
+        titleNoNikud.includes('פורים')
+      );
 
-      const existing = eventMap.get(dateStr) || [];
-      existing.push(item);
-      eventMap.set(dateStr, existing);
+      if (isParasha || isHoliday || isRoshChodesh) {
+        const item: CalendarEventItem = {
+          dateStr,
+          title: titleNoNikud,
+          isParasha,
+          isHoliday,
+          isRoshChodesh
+        };
+
+        const existing = eventMap.get(dateStr) || [];
+        // Avoid duplicate entries if years overlap
+        if (!existing.some(e => e.title === item.title)) {
+          existing.push(item);
+          eventMap.set(dateStr, existing);
+        }
+      }
     }
   }
 

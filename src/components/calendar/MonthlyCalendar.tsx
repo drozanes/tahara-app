@@ -143,8 +143,8 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
     return days;
   }, [currentMonth, flows, onot, taharaProcess, settings.locationName, monthEvents]);
 
-  const monthTitle = currentMonth.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
-  const todayStr = toDateString(new Date());
+  const monthTitle = useMemo(() => currentMonth.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }), [currentMonth]);
+  const todayStr = useMemo(() => toDateString(new Date()), []);
 
   const daysOfWeek = [
     { short: 'א׳', full: 'ראשון' },

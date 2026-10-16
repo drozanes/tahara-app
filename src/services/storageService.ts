@@ -15,11 +15,9 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 
-const STORAGE_KEYS = {
-  FLOWS: 'tahara_flows_v2',
-  SETTINGS: 'tahara_settings_v1',
-  PROCESSES: 'tahara_processes_v1',
-  COUPLE: 'tahara_couple_v1'
+const getStorageKey = (type: string, coupleId?: string) => {
+  const cleanId = coupleId ? coupleId.trim().toUpperCase() : 'default';
+  return `tahara_${type}_${cleanId}`;
 };
 
 export const storageService = {
@@ -31,40 +29,41 @@ export const storageService = {
         const snapshot = await getDocs(colRef);
         const cloudFlows = snapshot.docs.map(d => d.data() as FlowEntry);
         cloudFlows.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
-        if (cloudFlows.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(cloudFlows));
-          return cloudFlows;
-        }
+        // Cache the cloud state (even if empty) to the couple's storage key
+        localStorage.setItem(getStorageKey('flows_v2', coupleId), JSON.stringify(cloudFlows));
+        return cloudFlows;
       } catch (err) {
-        console.warn('Firebase getFlows failed, using local storage:', err);
+        console.warn('Firebase getFlows failed, using scoped local storage:', err);
       }
     }
 
-    // Read local flows (empty by default, filtering any previous sample flows)
-    const local = localStorage.getItem(STORAGE_KEYS.FLOWS);
-    if (!local) {
-      const v1 = localStorage.getItem('tahara_flows_v1');
-      if (v1) {
-        try {
-          const parsed = JSON.parse(v1);
-          const realFlows = parsed.filter((f: FlowEntry) => !f.id.startsWith('sample-flow-'));
-          localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(realFlows));
-          localStorage.removeItem('tahara_flows_v1');
-          return realFlows;
-        } catch {}
+    // Read scoped local flows for this couple
+    const local = localStorage.getItem(getStorageKey('flows_v2', coupleId));
+    if (local) {
+      try {
+        const parsed = JSON.parse(local);
+        return parsed.filter((f: FlowEntry) => !f.id.startsWith('sample-flow-'));
+      } catch {
+        return [];
       }
-      return [];
     }
-    try {
-      const parsed = JSON.parse(local);
-      return parsed.filter((f: FlowEntry) => !f.id.startsWith('sample-flow-'));
-    } catch {
-      return [];
+
+    // Backwards compatibility migration for un-scoped key
+    const legacy = localStorage.getItem('tahara_flows_v2');
+    if (legacy && !coupleId) {
+      try {
+        const parsed = JSON.parse(legacy);
+        return parsed.filter((f: FlowEntry) => !f.id.startsWith('sample-flow-'));
+      } catch {
+        return [];
+      }
     }
+
+    return [];
   },
 
   async saveFlow(flow: FlowEntry, coupleId?: string): Promise<void> {
-    const flows = await this.getFlows();
+    const flows = await this.getFlows(coupleId);
     const index = flows.findIndex(f => f.id === flow.id);
     if (index >= 0) {
       flows[index] = flow;
@@ -73,7 +72,7 @@ export const storageService = {
     }
     // Sort descending by date
     flows.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
-    localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(flows));
+    localStorage.setItem(getStorageKey('flows_v2', coupleId), JSON.stringify(flows));
 
     if (isFirebaseConfigured && db && coupleId) {
       try {
@@ -86,9 +85,9 @@ export const storageService = {
   },
 
   async deleteFlow(flowId: string, coupleId?: string): Promise<void> {
-    const flows = await this.getFlows();
+    const flows = await this.getFlows(coupleId);
     const filtered = flows.filter(f => f.id !== flowId);
-    localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(filtered));
+    localStorage.setItem(getStorageKey('flows_v2', coupleId), JSON.stringify(filtered));
 
     if (isFirebaseConfigured && db && coupleId) {
       try {
@@ -107,7 +106,7 @@ export const storageService = {
       const unsubscribe = onSnapshot(colRef, (snapshot) => {
         const flows = snapshot.docs.map(d => d.data() as FlowEntry);
         flows.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
-        localStorage.setItem(STORAGE_KEYS.FLOWS, JSON.stringify(flows));
+        localStorage.setItem(getStorageKey('flows_v2', coupleId), JSON.stringify(flows));
         onUpdate(flows);
       }, (err) => {
         console.warn('Firestore flows subscription error:', err);
@@ -120,8 +119,8 @@ export const storageService = {
   },
 
   // --- SETTINGS ---
-  getSettings(): HalachicSettings {
-    const local = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+  getSettings(coupleId?: string): HalachicSettings {
+    const local = localStorage.getItem(getStorageKey('settings_v1', coupleId)) || localStorage.getItem('tahara_settings_v1');
     if (local) {
       try {
         return JSON.parse(local);
@@ -131,7 +130,8 @@ export const storageService = {
   },
 
   saveSettings(settings: HalachicSettings, coupleId?: string): void {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    localStorage.setItem(getStorageKey('settings_v1', coupleId), JSON.stringify(settings));
+    localStorage.setItem('tahara_settings_v1', JSON.stringify(settings));
 
     if (isFirebaseConfigured && db && coupleId) {
       try {
@@ -150,7 +150,7 @@ export const storageService = {
       const unsubscribe = onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
           const settings = snapshot.data() as HalachicSettings;
-          localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+          localStorage.setItem(getStorageKey('settings_v1', coupleId), JSON.stringify(settings));
           onUpdate(settings);
         }
       }, (err) => {
@@ -164,8 +164,9 @@ export const storageService = {
   },
 
   // --- TAHARA PROCESS ---
-  getTaharaProcess(cycleId: string): TaharaProcess | null {
-    const local = localStorage.getItem(`${STORAGE_KEYS.PROCESSES}_${cycleId}`);
+  getTaharaProcess(cycleId: string, coupleId?: string): TaharaProcess | null {
+    const local = localStorage.getItem(`${getStorageKey('processes_v1', coupleId)}_${cycleId}`) || 
+                  localStorage.getItem(`tahara_processes_v1_${cycleId}`);
     if (local) {
       try {
         return JSON.parse(local);
@@ -175,7 +176,7 @@ export const storageService = {
   },
 
   saveTaharaProcess(process: TaharaProcess, coupleId?: string): void {
-    localStorage.setItem(`${STORAGE_KEYS.PROCESSES}_${process.cycleId}`, JSON.stringify(process));
+    localStorage.setItem(`${getStorageKey('processes_v1', coupleId)}_${process.cycleId}`, JSON.stringify(process));
 
     if (isFirebaseConfigured && db && coupleId) {
       try {
@@ -194,7 +195,7 @@ export const storageService = {
       const unsubscribe = onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
           const proc = snapshot.data() as TaharaProcess;
-          localStorage.setItem(`${STORAGE_KEYS.PROCESSES}_${cycleId}`, JSON.stringify(proc));
+          localStorage.setItem(`${getStorageKey('processes_v1', coupleId)}_${cycleId}`, JSON.stringify(proc));
           onUpdate(proc);
         }
       }, (err) => {
@@ -209,7 +210,7 @@ export const storageService = {
 
   // --- COUPLE PROFILE ---
   getCoupleProfile(): CoupleProfile {
-    const local = localStorage.getItem(STORAGE_KEYS.COUPLE);
+    const local = localStorage.getItem('tahara_couple_v1');
     if (local) {
       try {
         return JSON.parse(local);
@@ -220,15 +221,13 @@ export const storageService = {
       coupleCode: 'TZ-' + Math.floor(1000 + Math.random() * 9000),
       wifeName: 'שרה',
       husbandName: 'אברהם',
-      currentRole: 'wife',
-      settings: DEFAULT_SETTINGS.ashkenazi,
-      camouflageMode: false
+      settings: DEFAULT_SETTINGS.ashkenazi
     };
-    localStorage.setItem(STORAGE_KEYS.COUPLE, JSON.stringify(defaultProfile));
+    localStorage.setItem('tahara_couple_v1', JSON.stringify(defaultProfile));
     return defaultProfile;
   },
 
   saveCoupleProfile(profile: CoupleProfile): void {
-    localStorage.setItem(STORAGE_KEYS.COUPLE, JSON.stringify(profile));
+    localStorage.setItem('tahara_couple_v1', JSON.stringify(profile));
   }
 };

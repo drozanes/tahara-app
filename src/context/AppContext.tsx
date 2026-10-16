@@ -1,8 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { 
   FlowEntry, 
   HalachicSettings, 
-  PrishaOna, 
   TaharaProcess, 
   CoupleProfile 
 } from '../types/halacha';
@@ -10,40 +9,27 @@ import { storageService } from '../services/storageService';
 import { determineOnaAndHebrewDate, toDateString } from '../engine/zmanim';
 import { calculateOnotPrisha } from '../engine/onotCalculator';
 import { initializeTaharaProcess, completeHefsekTahara, updateTaharaStatus } from '../engine/taharaTracker';
-
-interface AppContextType {
-  flows: FlowEntry[];
-  activeFlow: FlowEntry | null;
-  onot: PrishaOna[];
-  taharaProcess: TaharaProcess | null;
-  settings: HalachicSettings;
-  profile: CoupleProfile;
-  isCamouflage: boolean;
-  addFlow: (dateTime: Date, notes?: string) => Promise<void>;
-  deleteFlow: (flowId: string) => Promise<void>;
-  updateSettings: (settings: HalachicSettings) => void;
-  switchRole: (role: 'wife' | 'husband') => void;
-  toggleCamouflage: () => void;
-  recordHefsek: (hefsekDate: string, mochDachuk: boolean) => void;
-  cancelHefsek: () => void;
-  toggleBedika: (dayNumber: number, type: 'morning' | 'afternoon') => void;
-  joinCoupleCode: (code: string) => Promise<boolean>;
-}
-
-const AppContext = createContext<AppContextType | null>(null);
+import { AppContext } from './appContextDefinition';
+export { useApp } from './useApp';
+export type { AppContextType } from './appContextDefinition';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [profile, setProfile] = useState<CoupleProfile>(() => storageService.getCoupleProfile());
+  const [settings, setSettings] = useState<HalachicSettings>(() => storageService.getSettings(profile.coupleCode));
   const [flows, setFlows] = useState<FlowEntry[]>([]);
-  const [settings, setSettings] = useState<HalachicSettings>(storageService.getSettings());
-  const [profile, setProfile] = useState<CoupleProfile>(storageService.getCoupleProfile());
-  const [isCamouflage, setIsCamouflage] = useState<boolean>(false);
   const [taharaProcess, setTaharaProcess] = useState<TaharaProcess | null>(null);
 
   // Load flows on mount or coupleCode change
   useEffect(() => {
+    let isCurrent = true;
     storageService.getFlows(profile.coupleCode).then(loadedFlows => {
-      setFlows(loadedFlows);
+      if (isCurrent) {
+        setFlows(loadedFlows);
+      }
     });
+    return () => {
+      isCurrent = false;
+    };
   }, [profile.coupleCode]);
 
   // Real-time synchronization via Firebase
@@ -93,17 +79,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       if (unsubProc) unsubProc();
     };
-  }, [profile.coupleCode, activeFlow?.id]);
+  }, [profile.coupleCode, activeFlow]);
 
   // Load or initialize Tahara process for active flow
   useEffect(() => {
     if (activeFlow) {
-      let proc = storageService.getTaharaProcess(activeFlow.id);
+      let proc = storageService.getTaharaProcess(activeFlow.id, profile.coupleCode);
       if (!proc) {
         proc = initializeTaharaProcess(activeFlow, settings);
         storageService.saveTaharaProcess(proc, profile.coupleCode);
       } else {
-        proc.status = updateTaharaStatus(proc);
+        const newStatus = updateTaharaStatus(proc);
+        if (proc.status !== newStatus) {
+          proc = { ...proc, status: newStatus };
+          storageService.saveTaharaProcess(proc, profile.coupleCode);
+        }
       }
       setTaharaProcess(proc);
     } else {
@@ -145,16 +135,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedProfile = { ...profile, settings: newSettings };
     setProfile(updatedProfile);
     storageService.saveCoupleProfile(updatedProfile);
-  };
 
-  const switchRole = (role: 'wife' | 'husband') => {
-    const updated = { ...profile, currentRole: role };
-    setProfile(updated);
-    storageService.saveCoupleProfile(updated);
-  };
-
-  const toggleCamouflage = () => {
-    setIsCamouflage(prev => !prev);
+    // If active flow exists and hefsek is not done, recalculate earliest hefsek date with new minDays
+    if (activeFlow && taharaProcess && !taharaProcess.hefsekDone) {
+      const refreshedProc = initializeTaharaProcess(activeFlow, newSettings);
+      setTaharaProcess(refreshedProc);
+      storageService.saveTaharaProcess(refreshedProc, profile.coupleCode);
+    }
   };
 
   const recordHefsek = (hefsekDate: string, mochDachuk: boolean) => {
@@ -218,12 +205,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       taharaProcess,
       settings,
       profile,
-      isCamouflage,
       addFlow,
       deleteFlow,
       updateSettings,
-      switchRole,
-      toggleCamouflage,
       recordHefsek,
       cancelHefsek,
       toggleBedika,
@@ -232,10 +216,4 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {children}
     </AppContext.Provider>
   );
-};
-
-export const useApp = () => {
-  const context = useContext(AppContext);
-  if (!context) throw new Error('useApp must be used within an AppProvider');
-  return context;
 };

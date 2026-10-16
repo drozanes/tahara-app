@@ -9,23 +9,29 @@ import type {
 import { 
   addDays, 
   toDateString, 
+  parseLocalDate,
   getZmanimForDate, 
   formatTime 
 } from './zmanim';
 
 /**
  * Initializes a Tahara process for a new menstrual flow.
+ * Respects day vs night flow: a flow after sunset belongs to the NEXT Hebrew day,
+ * which shifts the earliest Hefsek date by +1 civil day.
  */
 export function initializeTaharaProcess(
   flow: FlowEntry,
   settings: HalachicSettings
 ): TaharaProcess {
-  const flowDate = new Date(flow.gregorianDate);
+  const flowDate = parseLocalDate(flow.gregorianDate);
   
   // Earliest Hefsek day:
-  // Sephardi: 4th day (flow + 3 days)
-  // Ashkenazi: 5th day (flow + 4 days)
-  const daysToHefsek = settings.minDaysToHefsek === 4 ? 3 : 4;
+  // Sephardi: 4th day (minimum 4 days)
+  // Ashkenazi: 5th day (minimum 5 days)
+  // If flow occurred at NIGHT (עונת לילה, after sunset), Hebrew Day 1 is tomorrow.
+  const isNight = flow.ona === 'night';
+  const baselineOffset = isNight ? 1 : 0;
+  const daysToHefsek = (settings.minDaysToHefsek === 4 ? 3 : 4) + baselineOffset;
   const earliestHefsekDate = toDateString(addDays(flowDate, daysToHefsek));
 
   return {
@@ -47,7 +53,7 @@ export function completeHefsekTahara(
   mochDachuk: boolean,
   settings: HalachicSettings
 ): TaharaProcess {
-  const hefsekDate = new Date(hefsekDateStr);
+  const hefsekDate = parseLocalDate(hefsekDateStr);
   const location = settings.locationName;
   const cleanDays: SevenCleanDaysStep[] = [];
 

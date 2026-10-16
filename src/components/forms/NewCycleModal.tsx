@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Calendar, Clock, Sun, Moon, AlertCircle, Check } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { determineOnaAndHebrewDate, formatTime } from '../../engine/zmanim';
+import { determineOnaAndHebrewDate, formatTime, toDateString } from '../../engine/zmanim';
 
 interface NewCycleModalProps {
   isOpen: boolean;
@@ -12,20 +12,16 @@ interface NewCycleModalProps {
 export const NewCycleModal: React.FC<NewCycleModalProps> = ({ isOpen, onClose, initialDate }) => {
   const { addFlow, settings } = useApp();
 
-  const now = new Date();
-  const defaultDate = initialDate || now.toISOString().split('T')[0];
-  const defaultTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const todayDateStr = useMemo(() => toDateString(new Date()), []);
+  const defaultTimeStr = useMemo(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }, []);
 
-  const [dateStr, setDateStr] = useState<string>(defaultDate);
-  const [timeStr, setTimeStr] = useState<string>(defaultTime);
+  const [dateStr, setDateStr] = useState<string>(() => initialDate || todayDateStr);
+  const [timeStr, setTimeStr] = useState<string>(() => defaultTimeStr);
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  React.useEffect(() => {
-    if (initialDate) {
-      setDateStr(initialDate);
-    }
-  }, [initialDate, isOpen]);
 
   // Close on Escape key
   React.useEffect(() => {
@@ -104,6 +100,7 @@ export const NewCycleModal: React.FC<NewCycleModalProps> = ({ isOpen, onClose, i
               <input
                 type="date"
                 value={dateStr}
+                max={todayDateStr}
                 onChange={(e) => setDateStr(e.target.value)}
                 required
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
@@ -155,7 +152,7 @@ export const NewCycleModal: React.FC<NewCycleModalProps> = ({ isOpen, onClose, i
               {preview.isAfterSunset && (
                 <div className="text-[11px] text-amber-800 bg-amber-50/80 p-2 rounded-lg flex items-start gap-1.5 border border-amber-100">
                   <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                  <span>הראייה אירעה לאחר שקיעת החמה, ולכן חלה על יום המחרת ההלכתי (עונת לילה).</span>
+                  <span>הראייה אירעה לאחר שקיעת החמה, ולכן שייכת ליום המחרת ההלכתי (עונת לילה).</span>
                 </div>
               )}
             </div>
