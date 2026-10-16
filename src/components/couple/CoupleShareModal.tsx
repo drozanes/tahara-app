@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Copy, Check, Users, Share2, ArrowRight } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 import { isFirebaseConfigured } from '../../services/firebase';
 
 interface CoupleShareModalProps {

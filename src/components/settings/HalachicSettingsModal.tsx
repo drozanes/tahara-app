@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, BookOpen, MapPin, Sliders } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 import { DEFAULT_SETTINGS, type HalachicCustom, type HalachicSettings } from '../../types/halacha';
 
 interface HalachicSettingsModalProps {

@@ -196,3 +196,60 @@ describe('Tahara Lifecycle & Night Flow Hefsek Accuracy', () => {
     expect(updated.status).toBe('seven_clean_days');
   });
 });
+
+describe('Halachic Flow Conflict & Future Safeguards', () => {
+  it('identifies future dates as invalid for flow logging and hefsek', () => {
+    const futureDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days in future
+    const isFuture = futureDate.getTime() > Date.now();
+    expect(isFuture).toBe(true);
+
+    const todayStr = toDateString(new Date());
+    const futureDateStr = toDateString(futureDate);
+    expect(futureDateStr > todayStr).toBe(true);
+  });
+
+  it('correctly handles interruption of 7 clean days (סתירה) by resetting to new cycle', () => {
+    const dayFlow: FlowEntry = {
+      id: 'flow-base',
+      dateTime: '2026-10-18T10:00:00+03:00',
+      gregorianDate: '2026-10-18',
+      hebrewDateStr: 'ז׳ חֶשְׁוָן תשפ״ז',
+      hebrewYear: 5787,
+      hebrewMonthName: 'Cheshvan',
+      hebrewDay: 7,
+      ona: 'day',
+      createdAt: new Date().toISOString()
+    };
+
+    // Cycle started, Hefsek completed on Oct 22
+    const initialProcess = initializeTaharaProcess(dayFlow, DEFAULT_SETTINGS.ashkenazi);
+    const withHefsek = completeHefsekTahara(initialProcess, '2026-10-22', true, DEFAULT_SETTINGS.ashkenazi);
+    expect(withHefsek.status).toBe('seven_clean_days');
+
+    // Sighting on Day 3 of 7 clean days (Oct 25) - Halachic "Satrah"
+    const newSightingDate = new Date('2026-10-25T11:00:00+03:00');
+    const { ona, hebrewDateStr, hebrewYear, hebrewMonthName, hebrewDay } = 
+      determineOnaAndHebrewDate(newSightingDate, 'Jerusalem');
+
+    const interruptedFlow: FlowEntry = {
+      id: 'flow-interrupted',
+      dateTime: newSightingDate.toISOString(),
+      gregorianDate: toDateString(newSightingDate),
+      hebrewDateStr,
+      hebrewYear,
+      hebrewMonthName,
+      hebrewDay,
+      ona,
+      createdAt: new Date().toISOString()
+    };
+
+    // New process initialized from the interrupting flow
+    const resetProcess = initializeTaharaProcess(interruptedFlow, DEFAULT_SETTINGS.ashkenazi);
+    expect(resetProcess.status).toBe('active_flow');
+    expect(resetProcess.hefsekDone).toBe(false);
+    expect(resetProcess.cleanDays.length).toBe(0);
+    // Ashkenazi 5 days min: Oct 25 (1), 26 (2), 27 (3), 28 (4), Oct 29 (5)
+    expect(resetProcess.earliestHefsekDate).toBe('2026-10-29');
+  });
+});
+

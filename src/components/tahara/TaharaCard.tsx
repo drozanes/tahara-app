@@ -10,7 +10,7 @@ import {
   Calendar,
   AlertCircle
 } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 import { formatTime, toDateString, getZmanimForDate } from '../../engine/zmanim';
 
 export const TaharaCard: React.FC = () => {

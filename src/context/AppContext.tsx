@@ -10,8 +10,7 @@ import { determineOnaAndHebrewDate, toDateString } from '../engine/zmanim';
 import { calculateOnotPrisha } from '../engine/onotCalculator';
 import { initializeTaharaProcess, completeHefsekTahara, updateTaharaStatus } from '../engine/taharaTracker';
 import { AppContext } from './appContextDefinition';
-export { useApp } from './useApp';
-export type { AppContextType } from './appContextDefinition';
+
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profile, setProfile] = useState<CoupleProfile>(() => storageService.getCoupleProfile());
@@ -102,6 +101,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [activeFlow, settings, profile.coupleCode]);
 
   const addFlow = async (dateTime: Date, notes?: string) => {
+    // Prevent adding flow in the future (allowing up to 1 minute grace for clock drift)
+    if (dateTime.getTime() > Date.now() + 60000) {
+      throw new Error('לא ניתן להזין ראייה בתאריך או שעה עתידיים');
+    }
+
     const { ona, hebrewDateStr, hebrewYear, hebrewMonthName, hebrewDay } = 
       determineOnaAndHebrewDate(dateTime, settings.locationName);
 
@@ -121,6 +125,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await storageService.saveFlow(newFlow, profile.coupleCode);
     const updated = await storageService.getFlows(profile.coupleCode);
     setFlows(updated);
+  };
+
+  const updateFlowDate = async (flowId: string, newDateTime: Date, newNotes?: string) => {
+    if (newDateTime.getTime() > Date.now() + 60000) {
+      throw new Error('לא ניתן להזין ראייה בתאריך או שעה עתידיים');
+    }
+
+    const targetFlow = flows.find(f => f.id === flowId);
+    if (!targetFlow) return;
+
+    const { ona, hebrewDateStr, hebrewYear, hebrewMonthName, hebrewDay } = 
+      determineOnaAndHebrewDate(newDateTime, settings.locationName);
+
+    const updatedFlow: FlowEntry = {
+      ...targetFlow,
+      dateTime: newDateTime.toISOString(),
+      gregorianDate: toDateString(newDateTime),
+      hebrewDateStr,
+      hebrewYear,
+      hebrewMonthName,
+      hebrewDay,
+      ona,
+      notes: newNotes !== undefined ? newNotes : targetFlow.notes
+    };
+
+    await storageService.saveFlow(updatedFlow, profile.coupleCode);
+    const updatedFlows = await storageService.getFlows(profile.coupleCode);
+    setFlows(updatedFlows);
   };
 
   const deleteFlow = async (flowId: string) => {
@@ -145,6 +177,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const recordHefsek = (hefsekDate: string, mochDachuk: boolean) => {
+    const today = toDateString(new Date());
+    if (hefsekDate > today) {
+      throw new Error('לא ניתן לבצע הפסק טהרה בתאריך עתידי');
+    }
     if (!taharaProcess) return;
     const updated = completeHefsekTahara(taharaProcess, hefsekDate, mochDachuk, settings);
     setTaharaProcess(updated);
@@ -206,6 +242,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       settings,
       profile,
       addFlow,
+      updateFlowDate,
       deleteFlow,
       updateSettings,
       recordHefsek,

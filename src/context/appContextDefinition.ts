@@ -15,6 +15,7 @@ export interface AppContextType {
   settings: HalachicSettings;
   profile: CoupleProfile;
   addFlow: (dateTime: Date, notes?: string) => Promise<void>;
+  updateFlowDate: (flowId: string, newDateTime: Date, newNotes?: string) => Promise<void>;
   deleteFlow: (flowId: string) => Promise<void>;
   updateSettings: (settings: HalachicSettings) => void;
   recordHefsek: (hefsekDate: string, mochDachuk: boolean) => void;

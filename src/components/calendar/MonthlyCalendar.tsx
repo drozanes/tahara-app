@@ -12,7 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { HDate, gematriya } from '@hebcal/core';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/useApp';
 import { 
   toDateString, 
   getZmanimForDate, 
@@ -468,23 +468,34 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ onOpenNewCycle
               <span className="text-[11px] font-bold text-stone-500 block">פעולות לתאריך זה:</span>
 
               {/* Add Flow on this date */}
-              <button
-                onClick={() => {
-                  const dateToUse = selectedDay.dateStr;
-                  setSelectedDay(null);
-                  if (onOpenNewCycleWithDate) {
-                    onOpenNewCycleWithDate(dateToUse);
-                  }
-                }}
-                className="w-full py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-rose-200"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                הזנת ראייה בתאריך זה ({selectedDay.dateStr})
-              </button>
+              {selectedDay.dateStr <= todayStr ? (
+                <button
+                  onClick={() => {
+                    const dateToUse = selectedDay.dateStr;
+                    setSelectedDay(null);
+                    if (onOpenNewCycleWithDate) {
+                      onOpenNewCycleWithDate(dateToUse);
+                    }
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-rose-200"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  הזנת ראייה בתאריך זה ({selectedDay.dateStr})
+                </button>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-stone-100 text-stone-500 text-xs text-center font-medium">
+                  לא ניתן להזין ראייה בתאריך עתידי
+                </div>
+              )}
 
               {/* Perform Hefsek on this date (if cycle active and not done) */}
               {taharaProcess && !taharaProcess.hefsekDone && (
-                selectedDay.dateStr >= taharaProcess.earliestHefsekDate ? (
+                selectedDay.dateStr > todayStr ? (
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-800 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>לא ניתן לבצע הפסק טהרה בתאריך עתידי (טרם הגיע מועד זה).</span>
+                  </div>
+                ) : selectedDay.dateStr >= taharaProcess.earliestHefsekDate ? (
                   <button
                     onClick={() => {
                       recordHefsek(selectedDay.dateStr, true);
